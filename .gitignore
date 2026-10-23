@@ -28,3 +28,7 @@ models/
 # IDE
 .vscode/
 .idea/
+
+.kilo/
+
+AGENTS.md
