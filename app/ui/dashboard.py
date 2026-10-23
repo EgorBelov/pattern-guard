@@ -6,6 +6,7 @@ import hashlib
 import html
 import os
 import re
+import uuid
 from functools import lru_cache
 from typing import Any, Iterable
 
@@ -13,8 +14,8 @@ import requests
 import streamlit as st
 
 API_BASE_URL = os.getenv("PATTERNGUARD_API_URL", "http://localhost:8000").rstrip("/")
-ANALYZE_URL = os.getenv(
-    "PATTERNGUARD_ANALYZE_URL", f"{API_BASE_URL}/api/v1/analyze"
+MODERATE_URL = os.getenv(
+    "PATTERNGUARD_MODERATE_URL", f"{API_BASE_URL}/api/v1/moderate"
 )
 QUEUE_URL = f"{API_BASE_URL}/api/v1/queue"
 REQUEST_TIMEOUT = 1.5
@@ -265,7 +266,15 @@ def _normalize_patterns(raw: Any) -> list[dict[str, Any]]:
                 "label": str(
                     _first_value(
                         entry,
-                        ("label", "name", "pattern", "type", "category", "title"),
+                        (
+                            "label",
+                            "name",
+                            "pattern",
+                            "pattern_name",
+                            "type",
+                            "category",
+                            "title",
+                        ),
                         "Паттерн",
                     )
                 ),
@@ -285,6 +294,7 @@ def _normalize_patterns(raw: Any) -> list[dict[str, Any]]:
                             "matches",
                             "words",
                             "highlights",
+                            "highlighted_spans",
                             "keywords",
                         ),
                         [],
@@ -302,7 +312,14 @@ def _normalize_api_result(payload: dict[str, Any], text: str) -> dict[str, Any]:
     score = _normalize_score(
         _first_value(
             payload,
-            ("risk_score", "score", "toxicity_score", "toxicity", "risk"),
+            (
+                "overall_risk_score",
+                "risk_score",
+                "score",
+                "toxicity_score",
+                "toxicity",
+                "risk",
+            ),
             0,
         )
     )
@@ -310,7 +327,17 @@ def _normalize_api_result(payload: dict[str, Any], text: str) -> dict[str, Any]:
         _first_value(payload, ("patterns", "findings", "matches", "labels"), [])
     )
     verdict = _normalize_verdict(
-        _first_value(payload, ("verdict", "decision", "status", "label"), ""),
+        _first_value(
+            payload,
+            (
+                "recommended_action",
+                "verdict",
+                "decision",
+                "status",
+                "label",
+            ),
+            "",
+        ),
         score,
     )
     return {
@@ -360,8 +387,12 @@ def analyze_locally(text: str) -> dict[str, Any]:
 def analyze_comment(text: str) -> tuple[dict[str, Any], str]:
     try:
         response = requests.post(
-            ANALYZE_URL,
-            json={"text": text},
+            MODERATE_URL,
+            json={
+                "comment_id": f"live-{uuid.uuid4().hex[:10]}",
+                "text": text,
+                "author_id": "sandbox-user",
+            },
             timeout=REQUEST_TIMEOUT,
         )
         response.raise_for_status()
@@ -390,7 +421,7 @@ def _normalize_queue_item(item: Any, index: int) -> dict[str, Any] | None:
         str(
             _first_value(
                 item,
-                ("author", "username", "user", "user_name", "nickname"),
+                ("author", "username", "user", "user_name", "nickname", "author_id"),
                 "Аноним",
             )
         ).strip()
@@ -577,7 +608,7 @@ def _render_analysis(
             text=f"Общий скор риска: {score}%",
         )
     if source == "api":
-        st.caption(f"Источник: FastAPI · {ANALYZE_URL}")
+        st.caption(f"Источник: FastAPI · {MODERATE_URL}")
     else:
         st.caption(
             "Источник: локальный fallback (FastAPI недоступен) · "

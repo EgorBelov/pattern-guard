@@ -14,6 +14,10 @@ dist/
 .env
 .env.local
 
+# Streamlit local config and credentials
+.streamlit/
+credentials.toml
+
 # Logs
 *.log
 
