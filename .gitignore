@@ -32,3 +32,5 @@ models/
 .kilo/
 
 AGENTS.md
+
+kilo.json
