@@ -32,6 +32,10 @@ pattern-guard/
 └── requirements.txt
 ```
 
+## Участники команды
+
+- osheat (Oleg)
+
 ## Быстрый старт
 
 ```bash
